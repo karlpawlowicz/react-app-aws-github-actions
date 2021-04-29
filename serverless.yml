@@ -1,0 +1,87 @@
+service: react-app-aws-github-actions
+
+useDotenv: true
+
+plugins:
+  - '@silvermine/serverless-plugin-cloudfront-lambda-edge'
+  - serverless-s3-sync
+  - serverless-cloudfront-invalidate
+
+custom:
+  s3Sync:
+    - bucketName: react-app-aws-github-actions
+      localDir: out
+      acl: public-read
+  cloudfrontInvalidate:
+    - distributionIdKey: CloudFrontDistributionId
+      items:
+        - /*
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  lambdaHashingVersion: 20201221
+
+package:
+  exclude:
+    - '**'
+  include:
+    - functions/*
+
+functions:
+  originRequest:
+    handler: functions/handleOriginRequest.handler
+    lambdaAtEdge:
+      distribution: CloudFrontDistribution
+      eventType: origin-request
+  viewerRequest:
+    handler: functions/handleViewerRequest.handler
+    memorySize: 128
+    timeout: 5
+    lambdaAtEdge:
+      distribution: CloudFrontDistribution
+      eventType: viewer-request
+
+resources:
+  Resources:
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: react-app-aws-github-actions
+        AccessControl: PublicRead
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: 404.html
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          DefaultCacheBehavior:
+            TargetOriginId: S3BucketOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            DefaultTTL: 600
+            MaxTTL: 600
+            Compress: true
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          DefaultRootObject: index.html
+          Enabled: true
+          PriceClass: PriceClass_100
+          HttpVersion: http2
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: true
+          Origins:
+            - DomainName: react-app-aws-github-actions.s3-website-us-east-1.amazonaws.com
+              Id: S3BucketOrigin
+              CustomOriginConfig:
+                HTTPPort: 80
+                HTTPSPort: 443
+                OriginProtocolPolicy: http-only
+  Outputs:
+    CloudFrontDistributionId:
+      Value:
+        Ref: CloudFrontDistribution
