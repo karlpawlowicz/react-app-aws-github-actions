@@ -5,10 +5,10 @@ import '@testing-library/jest-dom/extend-expect';
 
 import Home from '../pages/index';
 
-test('renders welcome to text', () => {
+test('renders hi bmo! text', () => {
   render(<Home />);
 
-  const textElement = screen.getByText('Hi');
+  const textElement = screen.getByText('Hi BMO!');
 
   expect(textElement).toBeInTheDocument();
 });
